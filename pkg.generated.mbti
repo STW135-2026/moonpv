@@ -1,0 +1,67 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "STW135-2026/moonpv"
+
+import {
+  "moonbitlang/async",
+  "moonbitlang/async/socket",
+  "moonbitlang/core/ref",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct Client {
+  connection : @socket.Tcp
+  unit_id : Int
+  transaction_id : @ref.Ref[Int]
+  transaction_mutex : @async.Mutex
+}
+pub fn Client::close(Self) -> Unit
+pub async fn Client::connect(String, Int, unit_id? : Int) -> Result[Self, String]
+pub async fn Client::discover_sunspec(Self, Array[Int]) -> Result[SunSpecDevice, String]
+pub async fn Client::read_coils(Self, Int, Int) -> Result[Array[Bool], String]
+pub async fn Client::read_discrete_inputs(Self, Int, Int) -> Result[Array[Bool], String]
+pub async fn Client::read_holding_registers(Self, Int, Int) -> Result[Array[Int], String]
+pub async fn Client::read_input_registers(Self, Int, Int) -> Result[Array[Int], String]
+pub async fn Client::read_inverter_103(Self, SunSpecDevice) -> Result[Inverter103Snapshot, String]
+pub async fn Client::read_meter_203(Self, SunSpecDevice) -> Result[Meter203Snapshot, String]
+
+pub struct Inverter103Snapshot {
+  phase_voltage_a : Int?
+  phase_voltage_b : Int?
+  phase_voltage_c : Int?
+  voltage_scale_factor : Int?
+  active_power : Int?
+  active_power_scale_factor : Int?
+  frequency : Int?
+  frequency_scale_factor : Int?
+}
+
+pub struct Meter203Snapshot {
+  phase_voltage_a : Int?
+  voltage_scale_factor : Int?
+  active_power : Int?
+  active_power_scale_factor : Int?
+  frequency : Int?
+  frequency_scale_factor : Int?
+  imported_energy : Int64?
+  exported_energy : Int64?
+  energy_scale_factor : Int?
+}
+
+pub struct SunSpecDevice {
+  base_address : Int
+  models : Array[SunSpecModel]
+}
+
+pub struct SunSpecModel {
+  id : Int
+  start_address : Int
+  length : Int
+}
+
+// Type aliases
+
+// Traits
