@@ -23,5 +23,9 @@ jobs:
       - name: Check, test, and build
         run: |
           moon check --target native
+          moon check cmd/main --target native
+          moon check examples/sunspec_inverter --target native
           moon test --target native
           moon build --target native --release
+          moon build cmd/main --target native --release
+          moon build examples/sunspec_inverter --target native --release
