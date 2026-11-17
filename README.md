@@ -1,81 +1,119 @@
 # MoonPV
 
-MoonPV 是一个用 MoonBit 写的 SunSpec Modbus TCP 设备读取库和命令行工具。它可以查找设备的 SunSpec 地址、列出设备公布的模型，并读取三相逆变器 Model 103 与三相电表 Model 203 的常用数据。
+[![Native checks](https://github.com/STW135-2026/moonpv/actions/workflows/ci.yml/badge.svg)](https://github.com/STW135-2026/moonpv/actions/workflows/ci.yml)
 
-它面向需要把光伏逆变器接入 MoonBit 服务、边缘网关或本地监测程序的开发者。设备仍使用自己的 Modbus TCP 地址和 Unit ID；工具只读取数据，不下发控制指令。
+MoonPV 是用 MoonBit 编写的 SunSpec Modbus TCP 读取库和命令行工具。它发现设备公布的模型，读取三相逆变器和电表的常用数据，输出带单位、状态和精确小数的结果。
 
-## 当前功能
+## 用来做什么
 
-- 在用户指定的地址，或常见地址 `0`、`40000`、`50000` 查找 SunSpec 标记。
-- 按设备公布的模型 ID 和长度遍历模型链；设备插入可选模型时，后续模型地址仍按实际长度定位。
-- 读取三相逆变器 Model 103 的相电压、有功功率和频率。
-- 读取三相电表 Model 203 的相电压、有功功率、频率，以及累计输入/输出电量。
-- 保留原始数值和 SunSpec 十进制缩放因子；正确识别标准的未实现值。
-- 检查模型边界、模型长度和响应头；对设备未实现的标准数值点作标记。
-- 提供 MoonBit API 和 native 命令行工具。
+给 MoonBit 网关接入一台支持 SunSpec 的光伏逆变器，通常需要处理 TCP 通信、模型地址、寄存器类型、缩放因子和缺失值。MoonPV 把这些步骤做成可复用 API。采集服务可以直接取得电压、功率、频率和电表累计输入/输出电量；运维脚本也可以读取 CLI 的 JSON，不必另外运行 Python 或 Go 服务。
 
-当前版本暂不解析 Model 1 厂商/序列号字符串、Model 203 的全部 105 个数据点、厂商扩展模型、Modbus RTU 或写入控制点。
+本项目依据已有标准实现客户端。功能方向与其他语言的 SunSpec 客户端相近，价值是为 MoonBit 提供原生接入能力。[相关项目对比](docs/DIFFERENTIATION.zh-CN.md)列出了已有实现和本项目边界。
 
-## 运行
+## 已实现的范围
 
-需要 MoonBit 工具链。项目目标为 native，网络 I/O 使用官方 `moonbitlang/async` TCP socket。
+| 部分 | 支持内容 |
+| --- | --- |
+| 设备发现 | 指定基地址或依次探测 `0 / 40000 / 50000`；按 ID、长度遍历模型链，最多 64 个模型 |
+| Model 103 | 三相相电压、有功功率、频率；标准布局为 50 个数据寄存器 |
+| Model 203 | 三相相电压、有功功率、频率、累计输入/输出电量；标准布局为 105 个数据寄存器 |
+| 多实例 | CLI 默认读取所有 103/203 实例，也可按模型地址选择；库遇到同类多实例时要求显式选择 |
+| 数值 | 原始整数、缩放因子和精确十进制转换；区分未实现、缺少缩放因子和未累计电量 |
+| 连接 | 连接及每次请求默认 3 秒超时；并发请求串行收发；畸形帧、超时或中途取消后关闭连接 |
+| 输出 | 文本、JSON、明确的错误退出码；原始 holding/input 寄存器读取命令 |
 
-```sh
-moon check --target native
-moon test --target native
-moon build --target native --release
+仅支持 native、Modbus TCP 和上述选定字段。库另有 FC1/2 位读取接口；没有写入指令、RTU、浮点模型、厂商扩展模型、后台轮询、存储或图表功能。Model 1 只参与地址发现，不解析厂商字符串。**尚未在真实逆变器上测试，也没有 SunSpec 认证。**
+
+## 先跑本机演示
+
+工具链固定为 `moonc v0.10.21+06da1ed44`，依赖 `moonbitlang/async@0.22.9`。本机演示和集成测试需要 Python 3.12+，不需要额外 Python 包；参考客户端对照测试另行安装依赖。
+
+以下安装器从官方地址下载固定版本并核对 SHA-256，只写指定的空目录，不修改已有 MoonBit 安装。
+
+Windows PowerShell：
+
+```powershell
+python tools/install_toolchain.py .toolchain
+$env:MOON_HOME = (Resolve-Path .toolchain).Path
+$env:PATH = "$env:MOON_HOME\bin;$env:PATH"
+$env:MOON_REGISTRY_API = "1"
+python tools/demo.py
 ```
 
-连接 Unit ID 为 1 的设备，自动查找常见 SunSpec 基地址：
+Linux x86_64：
 
 ```sh
-moon run cmd/main -- sunspec 192.168.1.20 502 1
+python3 tools/install_toolchain.py .toolchain
+export MOON_HOME="$PWD/.toolchain"
+export PATH="$MOON_HOME/bin:$PATH"
+export MOON_REGISTRY_API=1
+python3 tools/demo.py
 ```
 
-如果设备手册给出明确的 SunSpec PDU 基地址，可以只探测该地址：
+已有对应版本时可跳过安装，设置好环境后运行演示。`MOON_REGISTRY_API=1` 使用工具链的 HTTP 包元数据接口，避免依赖旧的本地 Git 包索引。
+
+演示会在 `127.0.0.1` 的随机端口启动模拟设备，读取一台逆变器和两块电表，显示 `4200 W` 逆变器功率、`230.1 V` A 相电压等合成数据，再运行 MoonBit API 示例。退出时关闭服务。这些数值用于验证程序，不代表实机测量。
+
+## 连接设备
+
+设备须启用 SunSpec Modbus TCP。按厂商手册确认主机、端口、Unit ID 和基地址；这里使用线上发送的 **零基 PDU 地址**，不是 `4xxxx` 寄存器编号的通用换算。
 
 ```sh
-moon run cmd/main -- sunspec 192.168.1.20 502 1 40000
-```
-
-也可用原始寄存器命令核对设备数据：
-
-```sh
+moon run cmd/main -- sunspec 192.168.1.20 502 1 40000 --json
+moon run cmd/main -- sunspec 192.168.1.20 502 1 40000 --model-address 40122 --timeout-ms 5000
 moon run cmd/main -- read-holding 192.168.1.20 502 1 40000 4
+moon run cmd/main -- read-input 192.168.1.20 502 1 0 2 --json
 ```
 
-## 在 MoonBit 程序中调用
+`--timeout-ms` 范围为 1–600000，覆盖连接或单次请求（包括等待同一客户端上的其他请求），不是整个发现流程的总时限。连接失效后需要重新连接；工具不会自动重试或静默跳过失败模型。
 
-完整的可编译用法见 [`examples/sunspec_inverter/main.mbt`](examples/sunspec_inverter/main.mbt)：
+返回码：`0` 成功、`1` 设备/网络/模型错误、`2` 参数错误。错误只写 stderr；任何选中模型读取失败时，不输出看似成功的部分快照。脚本若需要区分 1 和 2，请直接运行构建产物，避免外层启动工具改变退出码。
+
+JSON 的 `schema_version` 为 1。每个快照包含 `model_id`、模型头 `address` 和 `points`。例如：
+
+```json
+{"raw":2301,"scale_factor":-1,"value":"230.1","unit":"V","status":"ok"}
+```
+
+`raw` 和 `scale_factor` 是数值或 `null`，`value` 是精确十进制字符串或 `null`。状态为 `ok`、`not_implemented`、`scale_unavailable` 或 `not_accumulated`。SunSpec `acc32` 的零表示“尚未累计”，不当作有效的零电量；`4294967295` 是有效累计值。非法缩放因子会使命令失败。累计电量不是区间用电量，使用方还需处理采样间隔、计数器复位和安装方向。
+
+## 作为 MoonBit 库使用
+
+可执行示例见 [examples/sunspec_inverter/main.mbt](examples/sunspec_inverter/main.mbt)，在 async 上下文中依次调用：
 
 ```moonbit
-let client = match @moonpv.Client::connect(
-  "192.168.1.20",
-  502,
-  unit_id=1,
-) {
+let client = match @moonpv.Client::connect(host, port, unit_id=1, timeout_ms=3000) {
   Ok(client) => client
-  Err(message) => fail(message)
+  Err(message) => return Err(message)
 }
 defer client.close()
-
-let device = match client.discover_sunspec([0, 40000, 50000]) {
+let device = match client.discover_sunspec([40000]) {
   Ok(device) => device
-  Err(message) => fail(message)
+  Err(message) => return Err(message)
 }
-let inverter = client.read_inverter_103(device)
+client.read_inverter_103(device)
 ```
 
-返回的功率、电压和频率是原始整数及其缩放因子。例如 `1234`、缩放因子 `-1` 表示 `123.4` 个对应单位；保留原值便于上层选择小数或定点数格式。
+同一设备有多块电表时传入 `read_meter_203(device, start_address=...)`。API 保留原始整数与缩放因子，可用 `scaled_decimal(raw, sf)` 转为精确小数；电量使用 `EnergyReading` 枚举区分未累计和值。
 
-## 项目价值
+## 检查与资料
 
-SunSpec 为兼容设备定义了统一的数据模型，常用于光伏逆变器和电力设备。MoonPV 把“找设备模型、定位寄存器、应用缩放因子”封装成 MoonBit API，MoonBit 网关或监测服务可复用同一套接入代码。Model 203 的输入/输出累计电量也便于本地能量监测程序判断电网取电和送电情况，不必为每个品牌手工硬编码寄存器偏移。
+```sh
+moon info
+moon fmt --check
+moon check --target native --deny-warn
+moon test --target native --deny-warn
+moon build --target native --release --deny-warn
+python tools/test_integration.py
+python -m pip install -r tools/requirements-reference.txt
+python tools/test_reference.py
+```
 
-本项目按 SunSpec Alliance 发布的设备信息规范和模型定义实现；项目不声称发明新的通信标准，也不替代设备厂商手册。当前支持范围以公开的 SunSpec 模型 103、203 中已实现的字段为准。
+最后两条仅供开发验证，参考客户端不是产品运行依赖。测试范围与实机限制见[验证记录](docs/VALIDATION.zh-CN.md)。
 
-## 参考资料
+- [项目申报书](docs/PROPOSAL.zh-CN.md) · [变更记录](CHANGELOG.md)
+- [SunSpec 设备信息模型规范 1.2.1](https://sunspec.org/wp-content/uploads/2025/01/SunSpec-Device-Information-Model-Specificiation-V1-2-1.pdf)
+- [SunSpec 官方模型与测试数据来源](tests/fixtures/sunspec/README.md)
+- [Modbus 官方规范](https://www.modbus.org/modbus-specifications) · [pysunspec2 官方参考客户端](https://github.com/sunspec/pysunspec2)
 
-- [SunSpec Device Information Model Specification](https://sunspec.org/specifications/)
-- [SunSpec 官方模型定义仓库](https://github.com/sunspec/models)，包括 [Model 103 三相逆变器定义](https://github.com/sunspec/models/blob/master/json/model_103.json) 和 [Model 203 三相电表定义](https://github.com/sunspec/models/blob/master/json/model_203.json)
-- [差异化检索记录](docs/DIFFERENTIATION.zh-CN.md)
+项目代码采用 Apache-2.0；第三方模型文件保留各自来源和许可证。
