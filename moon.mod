@@ -11,7 +11,7 @@
 
 name = "STW135-2026/moonpv"
 
-version = "0.1.0"
+version = "0.2.0"
 
 readme = "README.md"
 
@@ -28,5 +28,5 @@ supported_targets = "native"
 description = "MoonBit SunSpec reader for solar inverters and meters."
 
 import {
-  "moonbitlang/async@0.22.3",
+  "moonbitlang/async@0.22.9",
 }

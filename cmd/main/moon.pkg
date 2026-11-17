@@ -1,5 +1,7 @@
 import {
   "moonbitlang/async",
+  "moonbitlang/async/stdio",
+  "moonbitlang/core/json",
   "moonbitlang/core/env",
   "moonbitlang/core/string",
   "STW135-2026/moonpv",

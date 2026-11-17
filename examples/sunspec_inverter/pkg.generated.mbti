@@ -6,7 +6,7 @@ import {
 }
 
 // Values
-pub async fn read_sunspec_inverter(String, Int, Int) -> Result[@moonpv.Inverter103Snapshot, String]
+pub async fn read_sunspec_inverter(String, Int32, Int32) -> Result[@moonpv.Inverter103Snapshot, String]
 
 // Errors
 

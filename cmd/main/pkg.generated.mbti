@@ -6,6 +6,11 @@ package "STW135-2026/moonpv/cmd/main"
 // Errors
 
 // Types and methods
+type Options
+
+type Point
+
+type Snapshot
 
 // Type aliases
 

@@ -1,3 +1,9 @@
 import {
+  "moonbitlang/async",
   "STW135-2026/moonpv",
+  "moonbitlang/core/env",
+  "moonbitlang/core/string",
+  "moonbitlang/async/stdio",
 }
+
+pkgtype(kind: "executable")

@@ -83,12 +83,14 @@ test "response transaction unit protocol function and length are checked" {
     (0).to_byte(),
     (0).to_byte(),
     (0).to_byte(),
-    (3).to_byte(),
+    (5).to_byte(),
     (1).to_byte(),
     (3).to_byte(),
     (2).to_byte(),
     (0).to_byte(),
+    (42).to_byte(),
   ]
+  assert_true(decode_response(valid, 4, 1, 3) is Ok(_))
   assert_true(decode_response(valid, 5, 1, 3) is Err(_))
   let wrong_protocol = valid.copy()
   wrong_protocol[3] = (1).to_byte()
@@ -100,7 +102,7 @@ test "response transaction unit protocol function and length are checked" {
   wrong_function[7] = (4).to_byte()
   assert_true(decode_response(wrong_function, 4, 1, 3) is Err(_))
   let wrong_length = valid.copy()
-  wrong_length[5] = (5).to_byte()
+  wrong_length[5] = (3).to_byte()
   assert_true(decode_response(wrong_length, 4, 1, 3) is Err(_))
 }
 
@@ -149,8 +151,9 @@ test "SunSpec signed values and unimplemented sentinels decode correctly" {
   assert_eq(sunspec_i16_option(0x7FFF), Some(32767))
   assert_eq(sunspec_u16(0xFFFF), None)
   assert_eq(sunspec_u16(0xFFFE), Some(0xFFFE))
-  assert_eq(sunspec_u32(0xFFFF, 0xFFFF), None)
-  assert_eq(sunspec_u32(0x1234, 0x5678), Some(305419896))
+  assert_eq(sunspec_acc32(0, 0), NotAccumulated)
+  assert_eq(sunspec_acc32(0xFFFF, 0xFFFF), Accumulated(4294967295L))
+  assert_eq(sunspec_acc32(0x1234, 0x5678), Accumulated(305419896L))
 }
 
 ///|
@@ -262,8 +265,8 @@ async test "SunSpec discovery follows model lengths and reads Model 103 points" 
     assert_eq(meter.active_power_scale_factor, Some(-2))
     assert_eq(meter.frequency, Some(5000))
     assert_eq(meter.frequency_scale_factor, Some(-1))
-    assert_eq(meter.imported_energy, Some(25000))
-    assert_eq(meter.exported_energy, Some(12000))
+    assert_eq(meter.imported_energy, Accumulated(25000L))
+    assert_eq(meter.exported_energy, Accumulated(12000L))
     assert_eq(meter.energy_scale_factor, Some(0))
     client.close()
   }

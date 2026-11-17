@@ -2,64 +2,69 @@
 package "STW135-2026/moonpv"
 
 import {
-  "moonbitlang/async",
-  "moonbitlang/async/socket",
-  "moonbitlang/core/ref",
+  "moonbitlang/core/debug",
 }
 
 // Values
+pub fn scaled_decimal(Int64, Int32) -> Result[String, String]
 
 // Errors
 
 // Types and methods
 pub struct Client {
-  connection : @socket.Tcp
-  unit_id : Int
-  transaction_id : @ref.Ref[Int]
-  transaction_mutex : @async.Mutex
+  // private fields
 }
 pub fn Client::close(Self) -> Unit
-pub async fn Client::connect(String, Int, unit_id? : Int) -> Result[Self, String]
-pub async fn Client::discover_sunspec(Self, Array[Int]) -> Result[SunSpecDevice, String]
-pub async fn Client::read_coils(Self, Int, Int) -> Result[Array[Bool], String]
-pub async fn Client::read_discrete_inputs(Self, Int, Int) -> Result[Array[Bool], String]
-pub async fn Client::read_holding_registers(Self, Int, Int) -> Result[Array[Int], String]
-pub async fn Client::read_input_registers(Self, Int, Int) -> Result[Array[Int], String]
-pub async fn Client::read_inverter_103(Self, SunSpecDevice) -> Result[Inverter103Snapshot, String]
-pub async fn Client::read_meter_203(Self, SunSpecDevice) -> Result[Meter203Snapshot, String]
+pub async fn Client::connect(String, Int32, unit_id? : Int32, timeout_ms? : Int32) -> Result[Self, String]
+pub async fn Client::discover_sunspec(Self, Array[Int32]) -> Result[SunSpecDevice, String]
+pub fn Client::is_closed(Self) -> Bool
+pub async fn Client::read_coils(Self, Int32, Int32) -> Result[Array[Bool], String]
+pub async fn Client::read_discrete_inputs(Self, Int32, Int32) -> Result[Array[Bool], String]
+pub async fn Client::read_holding_registers(Self, Int32, Int32) -> Result[Array[Int32], String]
+pub async fn Client::read_input_registers(Self, Int32, Int32) -> Result[Array[Int32], String]
+pub async fn Client::read_inverter_103(Self, SunSpecDevice, start_address? : Int32) -> Result[Inverter103Snapshot, String]
+pub async fn Client::read_meter_203(Self, SunSpecDevice, start_address? : Int32) -> Result[Meter203Snapshot, String]
+
+#derive(Eq, @debug.Debug)
+pub(all) enum EnergyReading {
+  NotAccumulated
+  Accumulated(Int64)
+}
 
 pub struct Inverter103Snapshot {
-  phase_voltage_a : Int?
-  phase_voltage_b : Int?
-  phase_voltage_c : Int?
-  voltage_scale_factor : Int?
-  active_power : Int?
-  active_power_scale_factor : Int?
-  frequency : Int?
-  frequency_scale_factor : Int?
+  phase_voltage_a : Int32?
+  phase_voltage_b : Int32?
+  phase_voltage_c : Int32?
+  voltage_scale_factor : Int32?
+  active_power : Int32?
+  active_power_scale_factor : Int32?
+  frequency : Int32?
+  frequency_scale_factor : Int32?
 }
 
 pub struct Meter203Snapshot {
-  phase_voltage_a : Int?
-  voltage_scale_factor : Int?
-  active_power : Int?
-  active_power_scale_factor : Int?
-  frequency : Int?
-  frequency_scale_factor : Int?
-  imported_energy : Int64?
-  exported_energy : Int64?
-  energy_scale_factor : Int?
+  phase_voltage_a : Int32?
+  phase_voltage_b : Int32?
+  phase_voltage_c : Int32?
+  voltage_scale_factor : Int32?
+  active_power : Int32?
+  active_power_scale_factor : Int32?
+  frequency : Int32?
+  frequency_scale_factor : Int32?
+  imported_energy : EnergyReading
+  exported_energy : EnergyReading
+  energy_scale_factor : Int32?
 }
 
 pub struct SunSpecDevice {
-  base_address : Int
+  base_address : Int32
   models : Array[SunSpecModel]
 }
 
 pub struct SunSpecModel {
-  id : Int
-  start_address : Int
-  length : Int
+  id : Int32
+  start_address : Int32
+  length : Int32
 }
 
 // Type aliases

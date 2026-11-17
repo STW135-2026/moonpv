@@ -2,10 +2,12 @@
 /// An open Modbus TCP connection. Concurrent calls are serialized so each
 /// transaction ID stays paired with its response.
 pub struct Client {
-  connection : @socket.Tcp
-  unit_id : Int32
-  transaction_id : @ref.Ref[Int32]
-  transaction_mutex : @async.Mutex
+  priv connection : @socket.Tcp
+  priv unit_id : Int32
+  priv transaction_id : @ref.Ref[Int32]
+  priv transaction_mutex : @async.Mutex
+  priv timeout_ms : Int32
+  priv closed : @ref.Ref[Bool]
 }
 
 ///|
@@ -14,34 +16,55 @@ pub async fn Client::connect(
   host : String,
   port : Int32,
   unit_id~ : Int32 = 1,
+  timeout_ms~ : Int32 = 3000,
 ) -> Result[Client, String] {
+  if host.is_empty() {
+    return Err("host must not be empty")
+  }
   if port < 1 || port > 65535 {
     return Err("port must be between 1 and 65535")
   }
   if unit_id < 0 || unit_id > 255 {
     return Err("unit ID must be between 0 and 255")
   }
+  if timeout_ms < 1 || timeout_ms > 600000 {
+    return Err("timeout must be between 1 and 600000 milliseconds")
+  }
   try {
-    let connection = @socket.Tcp::connect_to_host(
-      host,
-      port~,
-      protocol=@socket.OnlyV4,
-    )
+    let connection = match
+      @async.with_timeout_opt(timeout_ms, () => {
+        @socket.Tcp::connect_to_host(host, port~)
+      }) {
+      Some(connection) => connection
+      None => return Err("connection timed out after \{timeout_ms} ms")
+    }
     Ok({
       connection,
       unit_id,
       transaction_id: @ref.Ref(1),
       transaction_mutex: @async.Mutex::Mutex(),
+      timeout_ms,
+      closed: @ref.Ref(false),
     })
   } catch {
-    _ => Err("could not connect to " + host + ":" + port.to_string())
+    error => Err("could not connect to \{host}:\{port}: \{error}")
   }
 }
 
 ///|
 /// Close the underlying TCP connection.
 pub fn Client::close(self : Client) -> Unit {
-  self.connection.close()
+  if !self.closed.val {
+    self.closed.val = true
+    self.connection.close()
+  }
+}
+
+///|
+/// A timed-out, cancelled, or malformed exchange closes the connection.
+/// Connect again before retrying. Calling close repeatedly is safe.
+pub fn Client::is_closed(self : Client) -> Bool {
+  self.closed.val
 }
 
 ///|
@@ -124,27 +147,78 @@ async fn Client::transact(
   function_code : Int32,
   request_pdu : Array[Byte],
 ) -> Result[Array[Byte], String] {
-  self.transaction_mutex.acquire()
-  defer self.transaction_mutex.release()
-  let transaction_id = self.transaction_id.val
-  self.transaction_id.val = (transaction_id + 1) & 0xFFFF
-  let request_adu = encode_adu(transaction_id, self.unit_id, request_pdu)
+  if self.is_closed() {
+    return Err("connection is closed; reconnect before retrying")
+  }
   try {
-    self.connection.write(Bytes::from_array(request_adu))
-    let header_bytes = self.connection.read_exactly(7)
-    let header = bytes_to_array(header_bytes)
-    let length = read_u16(header, 4)
-    if length < 2 || length > 254 {
-      return Err("response MBAP length is outside 2..254")
+    match
+      @async.with_timeout_opt(self.timeout_ms, () => {
+        // The deadline also covers waiting behind another caller. A caller that
+        // times out in the queue must not close someone else's active exchange.
+        self.transaction_mutex.acquire()
+        let complete = @ref.Ref(false)
+        defer {
+          if !complete.val {
+            self.close()
+          }
+          self.transaction_mutex.release()
+        }
+        if self.is_closed() {
+          return Err("connection is closed; reconnect before retrying")
+        }
+        let transaction_id = self.transaction_id.val
+        self.transaction_id.val = (transaction_id + 1) & 0xFFFF
+        let request_adu = encode_adu(transaction_id, self.unit_id, request_pdu)
+        self.connection.write(Bytes::from_array(request_adu))
+        let header = bytes_to_array(self.connection.read_exactly(7))
+        let length = read_u16(header, 4)
+        if length < 2 || length > 254 {
+          return Err("response MBAP length is outside 2..254")
+        }
+        if read_u16(header, 0) != transaction_id ||
+          read_u16(header, 2) != 0 ||
+          byte_at(header, 6) != self.unit_id {
+          return Err(
+            "response transaction, protocol, or unit ID does not match the request",
+          )
+        }
+        let remaining = self.connection.read_exactly(length - 1)
+        let adu = header
+        for byte in bytes_to_array(remaining) {
+          adu.push(byte)
+        }
+        let decoded = decode_response(
+          adu,
+          transaction_id,
+          self.unit_id,
+          function_code,
+        )
+        match decoded {
+          Ok(pdu) => {
+            let quantity = read_u16(request_pdu, 3)
+            let expected = if function_code <= 2 {
+              (quantity + 7) / 8
+            } else {
+              quantity * 2
+            }
+            if pdu.length() != expected + 2 || byte_at(pdu, 1) != expected {
+              return Err("read response has an invalid byte count")
+            }
+            complete.val = true
+          }
+          Err(_) =>
+            // A well-formed Modbus exception is a complete response. Its socket
+            // remains usable, unlike malformed frames and interrupted reads.
+            complete.val = length == 3 &&
+              byte_at(adu, 7) == (function_code | 0x80)
+        }
+        decoded
+      }) {
+      Some(result) => result
+      None => Err("TCP exchange timed out after \{self.timeout_ms} ms")
     }
-    let remaining = self.connection.read_exactly(length - 1)
-    let adu = header
-    for byte in bytes_to_array(remaining) {
-      adu.push(byte)
-    }
-    decode_response(adu, transaction_id, self.unit_id, function_code)
   } catch {
-    _ => Err("TCP exchange failed or the peer closed the connection")
+    error => Err("TCP exchange failed: \{error}")
   }
 }
 
@@ -280,8 +354,6 @@ fn valid_range(start : Int32, quantity : Int32, maximum : Int32) -> Bool {
   valid_address(start) &&
   start + quantity <= 65536
 }
-
-///|
 
 ///|
 fn high_byte(value : Int32) -> Byte {
