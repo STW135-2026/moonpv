@@ -72,6 +72,12 @@ def main():
         download(f"{BASE}/cores/core-{version}.zip", folder / "core.zip", CORE_SHA256)
         unpack(folder / filename, destination)
         unpack(folder / "core.zip", destination / "lib")
+    if os.name != "nt":
+        # The official Unix installer explicitly restores these permissions;
+        # the release tarball does not mark every executable as executable.
+        for executable in [*(destination / "bin").iterdir(), destination / "bin" / "internal" / "tcc"]:
+            executable.chmod(executable.stat().st_mode | 0o111)
+        (destination / "bin" / "moonx").symlink_to("moon")
     environment = dict(os.environ, MOON_HOME=str(destination))
     environment["PATH"] = str(destination / "bin") + os.pathsep + environment["PATH"]
     executable = destination / "bin" / ("moon.exe" if os.name == "nt" else "moon")
