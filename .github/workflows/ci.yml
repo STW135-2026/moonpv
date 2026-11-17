@@ -10,22 +10,42 @@ permissions:
 
 jobs:
   native:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      MOON_REGISTRY_API: "1"
+      PYTHONUTF8: "1"
     steps:
-      - name: Check out source
-        uses: actions/checkout@v5
-      - name: Install MoonBit
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned MoonBit with checksum verification
+        shell: bash
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
-      - name: Show toolchain
-        run: moon version --all
+          python tools/install_toolchain.py "$RUNNER_TEMP/moonpv-moon"
+          echo "MOON_HOME=$RUNNER_TEMP/moonpv-moon" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/moonpv-moon/bin" >> "$GITHUB_PATH"
       - name: Check, test, and build
+        shell: bash
         run: |
-          moon check --target native
-          moon check cmd/main --target native
-          moon check examples/sunspec_inverter --target native
-          moon test --target native
-          moon build --target native --release
-          moon build cmd/main --target native --release
-          moon build examples/sunspec_inverter --target native --release
+          moon version --all
+          moon info
+          moon fmt --check
+          git diff --exit-code -- '*.mbti'
+          moon check --target native --deny-warn
+          moon test --target native --deny-warn
+          moon build --target native --release --deny-warn
+      - name: Exercise CLI against local TCP fixtures
+        run: python tools/test_integration.py
+      - name: Compare with SunSpec reference client
+        shell: bash
+        run: |
+          python -m pip install -r tools/requirements-reference.txt
+          python tools/test_reference.py
+      - name: Run the documented offline demo
+        run: python tools/demo.py --no-build
