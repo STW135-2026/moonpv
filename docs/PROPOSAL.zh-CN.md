@@ -26,6 +26,6 @@ MoonPV 面向通过 SunSpec Modbus TCP 提供数据的光伏逆变器和电表�
 
 ## 验证与边界
 
-Windows、Linux 已通过构建、MoonBit 测试、本机 TCP 模拟测试及官方 `pysunspec2` 客户端结果对照，详见[验证记录](VALIDATION.zh-CN.md)。
+Windows、Linux 已通过构建、MoonBit 测试、本机 TCP 模拟测试及官方 `pysunspec2` 客户端结果对照。提供预编译程序和模拟演示包，可按 [MVP 验收步骤](MVP.zh-CN.md)直接试用；详细范围见[验证记录](VALIDATION.zh-CN.md)。
 
 当前只读，仅支持上述模型的选定字段，不包含设备控制、存储和监控界面，尚未完成实机验证。开发中使用 AI 辅助检索、编码和测试。

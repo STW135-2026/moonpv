@@ -24,7 +24,13 @@ MoonPV 是用 MoonBit 编写的 SunSpec Modbus TCP 读取库和命令行工具�
 
 仅支持 native、Modbus TCP 和上述选定字段。库另有 FC1/2 位读取接口；没有写入指令、RTU、浮点模型、厂商扩展模型、后台轮询、存储或图表功能。Model 1 只参与地址发现，不解析厂商字符串。**尚未在真实逆变器上测试，也没有 SunSpec 认证。**
 
-## 先跑本机演示
+## 下载试用
+
+[下载 v0.2.1](https://github.com/STW135-2026/moonpv/releases/tag/v0.2.1)，完整解压后运行 `bin/moonpv --help`（Windows 为 `bin\moonpv.exe`）。直接读取设备无需安装 MoonBit 或 Python；随包的模拟演示需要 Python 3.12+，运行 `python tools/demo.py` 即可。
+
+演示会核对模型发现、读数、未累计电量及 API 示例，成功后显示 `PASS`。[MVP 验收步骤](docs/MVP.zh-CN.md)集中列出了用法、预期结果和验证入口。Windows 包为 x86_64；Linux 包在 Ubuntu 24.04 x86_64 构建和测试，尚未验证其他发行版。
+
+## 从源码运行
 
 工具链固定为 `moonc v0.10.21+06da1ed44`，依赖 `moonbitlang/async@0.22.9`。本机演示和集成测试需要 Python 3.12+，不需要额外 Python 包；参考客户端对照测试另行安装依赖。
 
@@ -52,7 +58,7 @@ python3 tools/demo.py
 
 已有对应版本时可跳过安装，设置好环境后运行演示。`MOON_REGISTRY_API=1` 使用工具链的 HTTP 包元数据接口，避免依赖旧的本地 Git 包索引。
 
-演示会在 `127.0.0.1` 的随机端口启动模拟设备，读取一台逆变器和两块电表，显示 `4200 W` 逆变器功率、`230.1 V` A 相电压等合成数据，再运行 MoonBit API 示例。退出时关闭服务。这些数值用于验证程序，不代表实机测量。
+演示会在 `127.0.0.1` 的随机端口启动模拟设备，读取一台逆变器和两块电表，显示 `4200 W` 逆变器功率、`230.1 V` A 相电压等合成数据，再运行 MoonBit API 示例。退出时关闭服务。这些数值用于验证程序，不代表实机测量。加 `--json` 可输出核对后的完整 JSON。
 
 ## 连接设备
 
