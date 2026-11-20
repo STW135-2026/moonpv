@@ -15,9 +15,10 @@ struct Options {
 ///|
 fn usage() -> String {
   "MoonPV - SunSpec solar-device reader for MoonBit\n\nUsage:\n" +
-  "  moon run cmd/main -- sunspec <host> <port> <unit> [base-address] [options]\n" +
-  "  moon run cmd/main -- read-holding <host> <port> <unit> <address> <count> [options]\n" +
-  "  moon run cmd/main -- read-input <host> <port> <unit> <address> <count> [options]\n\n" +
+  "  moonpv sunspec <host> <port> <unit> [base-address] [options]\n" +
+  "  moonpv read-holding <host> <port> <unit> <address> <count> [options]\n" +
+  "  moonpv read-input <host> <port> <unit> <address> <count> [options]\n\n" +
+  "From source: replace moonpv with moon run cmd/main --\n\n" +
   "Options:\n  --timeout-ms N       connect/exchange deadline, 1..600000 (default 3000)\n" +
   "  --model-address N    select a Model 103/203 instance (sunspec only)\n" +
   "  --json               output JSON with exact decimal strings\n  --help               show this help\n\n" +
