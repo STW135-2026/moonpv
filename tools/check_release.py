@@ -17,7 +17,9 @@ def check(archive):
     if hashlib.sha256(archive.read_bytes()).hexdigest() != expected:
         raise ValueError("Archive checksum mismatch: " + archive.name)
     with tempfile.TemporaryDirectory(prefix="MoonPV unpacked test ") as temporary:
-        destination = Path(temporary)
+        # Windows runners may expose TEMP through a junction. Compare resolved
+        # paths on both sides, otherwise safe archive members look unrelated.
+        destination = Path(temporary).resolve()
         if archive.suffix == ".zip":
             with zipfile.ZipFile(archive) as packed:
                 for name in packed.namelist():
