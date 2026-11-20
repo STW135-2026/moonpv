@@ -11,7 +11,7 @@
 
 name = "STW135-2026/moonpv"
 
-version = "0.2.0"
+version = "0.2.1"
 
 readme = "README.md"
 
