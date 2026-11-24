@@ -184,8 +184,9 @@ async test "SunSpec discovery follows model lengths and reads Model 103 points" 
           [203, 105]
         } else if address == 40229 {
           [0xFFFF, 0]
-        } else if address == 40070 && quantity == 52 {
-          let data = Array::make(52, 0)
+        } else if address == 40070 {
+          assert_eq(quantity, 18)
+          let data = Array::make(quantity, 0)
           data[0] = 103
           data[1] = 50
           data[10] = 2300
@@ -198,7 +199,9 @@ async test "SunSpec discovery follows model lengths and reads Model 103 points" 
           data[17] = 0xFFFF
           data
         } else {
-          let data = Array::make(107, 0)
+          assert_eq(address, 40122)
+          assert_eq(quantity, 55)
+          let data = Array::make(quantity, 0)
           data[0] = 203
           data[1] = 105
           data[8] = 2315

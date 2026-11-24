@@ -45,6 +45,23 @@ class Integration(unittest.TestCase):
             self.assertTrue(all(address >= 40000 for _, address, _ in server.requests))
             self.rejected(server, 40000, "--model-address", 40002, expected="no supported")
 
+    def test_snapshot_reads_stop_at_last_required_point(self):
+        registers, models = demo_map()
+        expected_reads = []
+        for model_id, address in models:
+            if model_id in (103, 203):
+                _, offsets = model_block(model_id)
+                last = offsets["Hz_SF" if model_id == 103 else "TotWh_SF"]
+                # Simulate a gateway that exposes only the part we consume.
+                del registers[address + last + 1]
+                expected_reads.append((3, address, last + 1))
+        with FixtureServer(registers) as server:
+            snapshots = self.read(server, 40000)["snapshots"]
+            self.assertEqual([s["model_id"] for s in snapshots], [103, 203, 203])
+            self.assertEqual(snapshots[0]["points"]["frequency"]["value"], "50.00")
+            self.assertEqual(snapshots[1]["points"]["imported_energy"]["value"], "250000")
+            self.assertEqual([req for req in server.requests if req[2] > 2], expected_reads)
+
     def test_accumulator_maximum_and_not_accumulated(self):
         registers, models = demo_map()
         address = models[2][1]

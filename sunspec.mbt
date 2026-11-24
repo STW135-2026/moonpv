@@ -107,8 +107,8 @@ pub async fn Client::read_inverter_103(
   if model.length != 50 {
     return Err("SunSpec Model 103 requires the standard 50-register layout")
   }
-  let values = match
-    self.read_holding_registers(model.start_address, model.length + 2) {
+  // Read the header and points through Hz_SF (offset 17) in one exchange.
+  let values = match self.read_holding_registers(model.start_address, 18) {
     Ok(values) => values
     Err(message) => return Err(message)
   }
@@ -153,8 +153,8 @@ pub async fn Client::read_meter_203(
   if model.length != 105 {
     return Err("SunSpec Model 203 requires the standard 105-register layout")
   }
-  let values = match
-    self.read_holding_registers(model.start_address, model.length + 2) {
+  // TotWh_SF (offset 54) is the last register needed for this snapshot.
+  let values = match self.read_holding_registers(model.start_address, 55) {
     Ok(values) => values
     Err(message) => return Err(message)
   }

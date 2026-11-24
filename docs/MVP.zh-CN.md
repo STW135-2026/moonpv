@@ -4,7 +4,7 @@ MoonPV 已完成从连接 SunSpec 设备、发现模型、读取数据到输出�
 
 ## 下载后运行
 
-从 [v0.2.1 发布页](https://github.com/STW135-2026/moonpv/releases/tag/v0.2.1)下载对应系统的完整压缩包并解压。Windows 为 x86_64，Linux 版在 Ubuntu 24.04 x86_64 验证。模拟演示需要 Python 3.12+，不需要 MoonBit 或第三方 Python 包。
+从 [v0.2.2 发布页](https://github.com/STW135-2026/moonpv/releases/tag/v0.2.2)下载对应系统的完整压缩包并解压。Windows 为 x86_64，Linux 版在 Ubuntu 24.04 x86_64 验证。模拟演示需要 Python 3.12+，不需要 MoonBit 或第三方 Python 包。
 
 在解压目录运行：
 
@@ -31,7 +31,7 @@ PASS: discovery, readings, accumulator status and API example
 
 ## 还验证了什么
 
-- [Windows/Linux CI](https://github.com/STW135-2026/moonpv/actions/workflows/ci.yml)：构建、21 项 MoonBit 测试、13 组 CLI/TCP 集成测试和 2 组官方 `pysunspec2` 参考客户端对照。
+- [Windows/Linux CI](https://github.com/STW135-2026/moonpv/actions/workflows/ci.yml)：构建、21 项 MoonBit 测试、14 组 CLI/TCP 集成测试和 2 组官方 `pysunspec2` 参考客户端对照。
 - [发布包检查](../tools/check_release.py)：解压到仓库外的含空格路径，清空 PATH、移除 MoonBit 环境后运行帮助、模拟演示和 JSON 输出，检查错误退出码与缺少文件的提示。
 - 压缩包附 SHA-256；内部 `BUILD.json` 记录源码提交及文件校验值，发布页附两种系统的验收输出。
 
