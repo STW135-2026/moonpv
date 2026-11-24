@@ -8,6 +8,13 @@ pub struct SunSpecModel {
 }
 
 ///|
+/// Whether the advertised ID and length match a layout this library can decode.
+pub fn SunSpecModel::supports_snapshot(self : SunSpecModel) -> Bool {
+  (self.id == 103 && self.length == 50) ||
+  (self.id == 203 && self.length == 105)
+}
+
+///|
 /// A SunSpec device map found at a holding-register base address.
 pub struct SunSpecDevice {
   base_address : Int32
@@ -104,7 +111,7 @@ pub async fn Client::read_inverter_103(
     Ok(model) => model
     Err(message) => return Err(message)
   }
-  if model.length != 50 {
+  if !model.supports_snapshot() {
     return Err("SunSpec Model 103 requires the standard 50-register layout")
   }
   // Read the header and points through Hz_SF (offset 17) in one exchange.
@@ -150,7 +157,7 @@ pub async fn Client::read_meter_203(
     Ok(model) => model
     Err(message) => return Err(message)
   }
-  if model.length != 105 {
+  if !model.supports_snapshot() {
     return Err("SunSpec Model 203 requires the standard 105-register layout")
   }
   // TotWh_SF (offset 54) is the last register needed for this snapshot.
@@ -227,7 +234,9 @@ async fn scan_sunspec_models(
     let header = match client.read_holding_registers(address, 2) {
       Ok(header) => header
       Err(message) =>
-        return Err("could not read SunSpec model header: " + message)
+        return Err(
+          "could not read SunSpec model header at \{address}: " + message,
+        )
     }
     let id = header[0]
     let length = header[1]

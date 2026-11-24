@@ -15,10 +15,12 @@ struct Options {
 ///|
 fn usage() -> String {
   "MoonPV - SunSpec solar-device reader for MoonBit\n\nUsage:\n" +
+  "  moonpv models <host> <port> <unit> [base-address] [--json] [--timeout-ms N]\n" +
   "  moonpv sunspec <host> <port> <unit> [base-address] [options]\n" +
   "  moonpv read-holding <host> <port> <unit> <address> <count> [options]\n" +
   "  moonpv read-input <host> <port> <unit> <address> <count> [options]\n\n" +
   "From source: replace moonpv with moon run cmd/main --\n\n" +
+  "Use models to list one device's model addresses, then sunspec --model-address N to read an instance.\n\n" +
   "Options:\n  --timeout-ms N       connect/exchange deadline, 1..600000 (default 3000)\n" +
   "  --model-address N    select a Model 103/203 instance (sunspec only)\n" +
   "  --json               output JSON with exact decimal strings\n  --help               show this help\n\n" +
@@ -42,9 +44,8 @@ fn parse_options(args : Array[String]) -> Result[Options?, String] {
     return Err("a command is required")
   }
   let command = args[1]
-  if command != "sunspec" &&
-    command != "read-holding" &&
-    command != "read-input" {
+  let uses_map = command == "models" || command == "sunspec"
+  if !uses_map && command != "read-holding" && command != "read-input" {
     return Err("unknown command: " + command)
   }
   let positional : Array[String] = []
@@ -102,12 +103,8 @@ fn parse_options(args : Array[String]) -> Result[Options?, String] {
     }
     i = i + 1
   }
-  if (
-      command == "sunspec" &&
-      positional.length() != 3 &&
-      positional.length() != 4
-    ) ||
-    (command != "sunspec" && positional.length() != 5) {
+  if (uses_map && positional.length() != 3 && positional.length() != 4) ||
+    (!uses_map && positional.length() != 5) {
     return Err("incorrect number of arguments for " + command)
   }
   let host = positional[0]
@@ -131,7 +128,7 @@ fn parse_options(args : Array[String]) -> Result[Options?, String] {
   let mut address = 0
   let mut count = 0
   let mut bases = [0, 40000, 50000]
-  if command == "sunspec" {
+  if uses_map {
     if positional.length() == 4 {
       let base = match integer(positional[3], "base address") {
         Ok(value) => value

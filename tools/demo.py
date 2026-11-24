@@ -42,6 +42,19 @@ def main():
         subprocess.run(["moon", "build", "--target", "native", "--release"], cwd=ROOT, check=True,
                        stdout=sys.stderr)
     with FixtureServer() as server:
+        inventory = run_cli(server, "--json", command="models")
+        if inventory.returncode or inventory.stderr:
+            raise SystemExit(inventory.stderr or "Could not read the model map")
+        device = json.loads(inventory.stdout)
+        meters = [m["address"] for m in device["models"] if m["id"] == 203 and m["snapshot_supported"]]
+        if meters != [40122, 40229]:
+            raise ValueError("Unexpected meter addresses in the model map")
+        selected = run_cli(server, device["base_address"], "--model-address", meters[1], "--json")
+        if selected.returncode or selected.stderr:
+            raise SystemExit(selected.stderr or "Could not read the selected meter")
+        readings = json.loads(selected.stdout)["snapshots"]
+        if len(readings) != 1 or readings[0]["address"] != meters[1]:
+            raise ValueError("Expected only the meter selected from the map")
         result = run_cli(server, "--json")
         if result.returncode:
             raise SystemExit(result.stderr)
@@ -51,6 +64,8 @@ def main():
             (item["model_id"], item["address"]) for item in snapshots
         ] != [(103, 40070), (203, 40122), (203, 40229)]:
             raise ValueError("Unexpected model discovery result")
+        if readings[0] != snapshots[-1]:
+            raise ValueError("Selected meter differs from the last snapshot in the fixture")
         expected = [
             {"active_power": "4200", "voltage_a": "230.1", "frequency": "50.00"},
             {"active_power": "-1200", "imported_energy": "250000", "exported_energy": "120000"},
@@ -74,13 +89,20 @@ def main():
             print(result.stdout.strip())
         else:
             print("Local simulated PV site (not a real-device measurement):")
+            print(f"Meter addresses: {meters[0]}, {meters[1]}; selected {readings[0]['address']}")
             print("Model  Address  Active power  A-phase voltage")
             for snapshot in snapshots:
                 points = snapshot["points"]
                 print(f"{snapshot['model_id']:<6} {snapshot['address']:<8} "
                       f"{points['active_power']['value'] + ' W':<13} {points['voltage_a']['value']} V")
-            print("Meter 40122: imported 250000 Wh; exported 120000 Wh")
-            print("Meter 40229: imported 480000 Wh; exported not_accumulated")
+            for meter in snapshots[1:]:
+                points = meter["points"]
+                totals = []
+                for direction in ("imported", "exported"):
+                    point = points[direction + "_energy"]
+                    display = point["status"] if point["value"] is None else f"{point['value']} {point['unit']}"
+                    totals.append(direction + " " + display)
+                print(f"Meter {meter['address']}: " + "; ".join(totals))
             print("API example: " + example.stdout.strip())
             print("PASS: discovery, readings, accumulator status and API example")
 

@@ -27,8 +27,11 @@ python3 tools/demo.py
 按厂商手册确认设备已启用 SunSpec Modbus TCP、端口、Unit ID 和零基 PDU 地址。以下地址仅为示例。
 
 ```powershell
-.\bin\moonpv.exe sunspec 192.168.1.20 502 1 40000 --json
+.\bin\moonpv.exe models 192.168.1.20 502 1 40000
+.\bin\moonpv.exe sunspec 192.168.1.20 502 1 40000 --model-address 40122 --json
 ```
+
+第一条命令列出模型。运行第二条前，将示例地址 40122 换成列表中所需电表的地址；省略 `--model-address` 可读取所有支持的实例。
 
 Linux 将 `.\bin\moonpv.exe` 换成 `./bin/moonpv`。直接读取设备不需要 Python。退出码 `0` 为成功，`1` 为读取失败，`2` 为参数错误；错误写入 stderr。
 

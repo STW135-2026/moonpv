@@ -144,3 +144,63 @@ fn snapshot_json(snapshot : Snapshot) -> Json {
     "points": @json.to_json(points),
   }
 }
+
+///|
+/// None is a map-only result. A snapshot is formatted only after every read succeeds.
+fn format_device(
+  device : @moonpv.SunSpecDevice,
+  snapshots : Array[Snapshot]?,
+  json~ : Bool,
+) -> String {
+  if json {
+    let models = device.models.map(model => {
+      let entry : Map[String, Json] = {
+        "id": @json.to_json(model.id),
+        "address": @json.to_json(model.start_address),
+        "length": @json.to_json(model.length),
+      }
+      if snapshots is None {
+        entry["snapshot_supported"] = @json.to_json(model.supports_snapshot())
+      }
+      Json::object(entry)
+    })
+    let fields : Map[String, Json] = {
+      "schema_version": 1,
+      "base_address": @json.to_json(device.base_address),
+      "models": @json.to_json(models),
+    }
+    if snapshots is Some(readings) {
+      fields["snapshots"] = @json.to_json(readings.map(snapshot_json))
+    }
+    return Json::object(fields).stringify(indent=2)
+  }
+  let lines = ["SunSpec base address: \{device.base_address}"]
+  for model in device.models {
+    let description = "Model \{model.id}: address \{model.start_address}, length \{model.length}"
+    if snapshots is None {
+      let support = if model.supports_snapshot() {
+        "supported"
+      } else {
+        "unsupported"
+      }
+      lines.push(description + ", snapshot: " + support)
+    } else {
+      lines.push(description)
+    }
+  }
+  if snapshots is Some(readings) {
+    for snapshot in readings {
+      lines.push("Model \{snapshot.id} at \{snapshot.address}:")
+      for point in snapshot.points {
+        let value = match point.value {
+          Some(value) => value
+          None => point.status
+        }
+        lines.push("  \{point.name}: \{value} \{point.unit}")
+      }
+    }
+  } else if device.models.is_empty() {
+    lines.push("No models advertised")
+  }
+  lines.join("\n")
+}

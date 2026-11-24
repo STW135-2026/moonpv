@@ -11,6 +11,8 @@ test "arguments are rejected before any network operation" {
       ["moonpv", "sunspec", "localhost", "502", "1", "--timeout-ms", "0"],
       ["moonpv", "sunspec", "localhost", "502", "1", "--timeout-ms"],
       ["moonpv", "sunspec", "localhost", "502", "1", "--json", "--json"],
+      ["moonpv", "models", "localhost", "502", "1", "--model-address", "70"],
+      ["moonpv", "models", "localhost", "502", "1", "0", "2"],
       ["moonpv", "read-input", "localhost", "502", "1", "65535", "2"],
       ["moonpv", "read-input", "localhost", "502", "1", "0", "126"],
       [

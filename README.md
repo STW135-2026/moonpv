@@ -28,7 +28,7 @@ MoonPV 是用 MoonBit 编写的 SunSpec Modbus TCP 读取库和命令行工具�
 
 ## 下载试用
 
-[下载 v0.2.2](https://github.com/STW135-2026/moonpv/releases/tag/v0.2.2)，完整解压后运行 `bin/moonpv --help`（Windows 为 `bin\moonpv.exe`）。直接读取设备无需安装 MoonBit 或 Python；随包的模拟演示需要 Python 3.12+，运行 `python tools/demo.py` 即可。
+[下载 v0.3.0](https://github.com/STW135-2026/moonpv/releases/tag/v0.3.0)，完整解压后运行 `bin/moonpv --help`（Windows 为 `bin\moonpv.exe`）。直接读取设备无需安装 MoonBit 或 Python；随包的模拟演示需要 Python 3.12+，运行 `python tools/demo.py` 即可。
 
 演示会核对模型发现、读数、未累计电量及 API 示例，成功后显示 `PASS`。[MVP 验收步骤](docs/MVP.zh-CN.md)集中列出了用法、预期结果和验证入口。Windows 包为 x86_64；Linux 包在 Ubuntu 24.04 x86_64 构建和测试，尚未验证其他发行版。
 
@@ -66,7 +66,10 @@ python3 tools/demo.py
 
 设备须启用 SunSpec Modbus TCP。按厂商手册确认主机、端口、Unit ID 和基地址；这里使用线上发送的 **零基 PDU 地址**，不是 `4xxxx` 寄存器编号的通用换算。
 
+先用 `models` 查看这台设备公布的模型。每行列出模型 ID、零基地址、长度和快照支持情况。比如两块电表的模型 ID 都是 203，可以用各自的地址区分。表中标记支持表示 ID 和长度符合解码器要求，实际读数由随后运行的 `sunspec` 返回。加 `--json` 可让脚本按 `snapshot_supported` 筛选。以下命令中的 40122 是示例地址，使用时换成设备列出的值。
+
 ```sh
+moon run cmd/main -- models 192.168.1.20 502 1 40000
 moon run cmd/main -- sunspec 192.168.1.20 502 1 40000 --json
 moon run cmd/main -- sunspec 192.168.1.20 502 1 40000 --model-address 40122 --timeout-ms 5000
 moon run cmd/main -- read-holding 192.168.1.20 502 1 40000 4

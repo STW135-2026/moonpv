@@ -45,6 +45,40 @@ class Integration(unittest.TestCase):
             self.assertTrue(all(address >= 40000 for _, address, _ in server.requests))
             self.rejected(server, 40000, "--model-address", 40002, expected="no supported")
 
+    def test_model_map_lists_instances_without_reading_measurements(self):
+        registers, models = demo_map(base=50000)
+        with FixtureServer(registers) as server:
+            result = run_cli(server, 50000, "--json", command="models")
+            self.assertEqual((result.returncode, result.stderr), (0, ""))
+            inventory = json.loads(result.stdout)
+            self.assertEqual(set(inventory), {"schema_version", "base_address", "models"})
+            self.assertEqual((inventory["schema_version"], inventory["base_address"]), (1, 50000))
+            self.assertEqual(inventory["models"], [
+                {"id": model_id, "address": address, "length": registers[address + 1],
+                 "snapshot_supported": model_id in (103, 203)} for model_id, address in models
+            ])
+            self.assertEqual(server.requests, [(3, address, 2) for address in
+                             [50000, *(address for _, address in models), max(registers) - 1]])
+            second_meter = inventory["models"][-1]["address"]
+            self.assertEqual(self.read(server, 50000, "--model-address", second_meter)["snapshots"][0]
+                             ["points"]["active_power"]["value"], "3000")
+
+    def test_model_map_without_a_readable_snapshot(self):
+        # Only headers are present. Include an unknown ID and a nonstandard 103.
+        headers = {0: 0x5375, 1: 0x6E53, 2: 65000, 3: 4, 8: 103, 9: 49, 59: 0xFFFF, 60: 0}
+        with FixtureServer(headers) as server:
+            result = run_cli(server, 0, command="models")
+            self.assertEqual((result.returncode, result.stderr), (0, ""))
+            self.assertIn("Model 65000: address 2, length 4, snapshot: unsupported", result.stdout)
+            self.assertIn("Model 103: address 8, length 49, snapshot: unsupported", result.stdout)
+        with FixtureServer({0: 0x5375, 1: 0x6E53, 2: 0xFFFF, 3: 0}) as server:
+            result = run_cli(server, 0, "--json", command="models")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout)["models"], [])
+        del headers[60]
+        with FixtureServer(headers) as server:
+            self.rejected(server, 0, "--json", expected="model header at 59", command="models")
+
     def test_snapshot_reads_stop_at_last_required_point(self):
         registers, models = demo_map()
         expected_reads = []

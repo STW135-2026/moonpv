@@ -66,6 +66,7 @@ pub struct SunSpecModel {
   start_address : Int32
   length : Int32
 }
+pub fn SunSpecModel::supports_snapshot(Self) -> Bool
 
 // Type aliases
 

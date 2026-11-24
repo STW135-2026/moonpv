@@ -39,7 +39,7 @@ async fn run_command(options : Options) -> Result[String, String] {
     Err(message) => return Err(message)
   }
   defer client.close()
-  if options.command != "sunspec" {
+  if options.command == "read-holding" || options.command == "read-input" {
     let values = match
       (if options.command == "read-holding" {
         client.read_holding_registers(options.address, options.count)
@@ -65,6 +65,9 @@ async fn run_command(options : Options) -> Result[String, String] {
     Ok(device) => device
     Err(message) => return Err(message)
   }
+  if options.command == "models" {
+    return Ok(format_device(device, None, json=options.json))
+  }
   let snapshots : Array[Snapshot] = []
   for model in device.models {
     if options.model_address is Some(address) && address != model.start_address {
@@ -87,44 +90,13 @@ async fn run_command(options : Options) -> Result[String, String] {
     }
   }
   if snapshots.is_empty() {
+    let location = match options.model_address {
+      Some(address) => "at address \{address}"
+      None => "in this device map"
+    }
     return Err(
-      "no supported Model 103/203 at the requested address; inspect the device model map",
+      "no supported Model 103/203 \{location}; run 'moonpv models' with the same connection parameters",
     )
   }
-  // No successful partial snapshot: all selected reads must finish first.
-  if options.json {
-    let models = device.models.map(model => {
-      let value : Json = {
-        "id": @json.to_json(model.id),
-        "address": @json.to_json(model.start_address),
-        "length": @json.to_json(model.length),
-      }
-      value
-    })
-    let result : Json = {
-      "schema_version": 1,
-      "base_address": @json.to_json(device.base_address),
-      "models": @json.to_json(models),
-      "snapshots": @json.to_json(snapshots.map(snapshot_json)),
-    }
-    Ok(result.stringify(indent=2))
-  } else {
-    let lines = ["SunSpec base address: \{device.base_address}"]
-    for model in device.models {
-      lines.push(
-        "Model \{model.id}: address \{model.start_address}, length \{model.length}",
-      )
-    }
-    for snapshot in snapshots {
-      lines.push("Model \{snapshot.id} at \{snapshot.address}:")
-      for point in snapshot.points {
-        let value = match point.value {
-          Some(value) => value
-          None => point.status
-        }
-        lines.push("  \{point.name}: \{value} \{point.unit}")
-      }
-    }
-    Ok(lines.join("\n"))
-  }
+  Ok(format_device(device, Some(snapshots), json=options.json))
 }
